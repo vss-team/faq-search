@@ -73,6 +73,8 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
   font: inherit; text-align: left; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 14px; cursor: pointer; line-height: 1.35;
 }
+.pick-note { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 8px; padding: 12px 16px; font-size: 14.5px; color: var(--ink-2); }
+.pick-note strong { color: var(--ink); }
 .pick-btn b { display: block; font-size: 15.5px; }
 .pick-btn span { display: block; font-size: 12.5px; color: var(--muted); }
 .pick-btn:hover { border-color: var(--blue); }
@@ -454,7 +456,7 @@ function search(data, query, opts) {
   let data = null, kdata = null, allVocab = new Map(), aliases = Object.assign({}, MODEL_ALIASES);
   let timer = null, idleTimer = null;
   let lastQuery = "", lastCount = -1, lastModelLabel = "";
-  let lastRows = [], lastDocRows = [], lastAmbiguous = [], acceptedAmbiguity = "";
+  let lastRows = [], lastDocRows = [], lastAmbiguous = [], acceptedAmbiguity = "", lastModelOnly = false;
   let submitted = "", aiCtl = null, aiState = "idle", aiPausedUntil = 0;   // aiState: idle | loading | done | fallback
   const sent = new Set();
   let sentCount = 0;
@@ -664,13 +666,24 @@ function search(data, query, opts) {
     return (text + " " + label).trim();
   }
 
-  /* 번호만 입력해서 여러 장비에 해당하면, 정확한 장비를 고르게 합니다. */
-  function renderPick(q, amb) {
+  /* 장비 안내 카드:
+     ① 번호만 입력해서 여러 장비에 해당하면 정확한 장비를 고르게 하고,
+     ② 장비만 정해졌고 질문이 아직 없으면 이어서 질문을 쓰도록 안내합니다. */
+  function renderPick(q, amb, hasText, modelKeys) {
     const box = $("pick");
     box.innerHTML = ""; box.hidden = true;
-    if (!q || !amb.length) return;
-    const a = amb[0];
+    if (!q) return;
     const vlabel = (k) => allVocab.get(k) || k;
+
+    if (!amb.length) {
+      if (!hasText && modelKeys.size === 1) {
+        box.hidden = false;
+        box.innerHTML = '<div class="pick-note"><strong>' + esc(vlabel([...modelKeys][0])) + '</strong> 기준으로 찾고 있어요. 이어서 궁금한 내용을 입력해 주세요. (예: 영수증 재출력, 위챗페이 지원 여부)</div>';
+      }
+      return;
+    }
+
+    const a = amb[0];
     box.hidden = false;
     const card = document.createElement("div");
     card.className = "pick-card";
@@ -682,16 +695,27 @@ function search(data, query, opts) {
       const kind = aliases[k] && aliases[k].label ? aliases[k].label : "";
       b.innerHTML = "<b>" + esc(vlabel(k)) + "</b>" + (kind ? "<span>" + esc(kind) + "</span>" : "");
       b.addEventListener("click", () => {
-        $("q").value = replaceToken($("q").value, a.token, vlabel(k));
-        ask();
+        const input = $("q");
+        const next = replaceToken(input.value, a.token, vlabel(k));
+        if (hasText) {                       // 질문이 이미 완성돼 있으면 장비만 바꿔서 바로 질문
+          input.value = next;
+          ask();
+          return;
+        }
+        input.value = next.trim() + " ";     // 장비만 입력했으면 모델명만 채우고, 이어서 질문을 쓰게 함
+        render();
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
       });
       list.appendChild(b);
     });
-    const skip = document.createElement("button");
-    skip.type = "button"; skip.className = "pick-skip";
-    skip.textContent = "잘 모르겠어요. 이대로 질문하기";
-    skip.addEventListener("click", () => { acceptedAmbiguity = q; ask(); });
-    card.appendChild(skip);
+    if (hasText) {                           // 질문이 있을 때만 '이대로 질문하기' 제공
+      const skip = document.createElement("button");
+      skip.type = "button"; skip.className = "pick-skip";
+      skip.textContent = "잘 모르겠어요. 이대로 질문하기";
+      skip.addEventListener("click", () => { acceptedAmbiguity = q; ask(); });
+      card.appendChild(skip);
+    }
     box.appendChild(card);
   }
 
@@ -724,7 +748,8 @@ function search(data, query, opts) {
       : results.slice().sort((a, b) => (b.it.freq - a.it.freq) || (b.it.imp - a.it.imp)).slice(0, TOP_SHOWN);
     lastRows = rows; lastDocRows = docRows;
     lastAmbiguous = parsed.ambiguous || [];
-    renderPick(q, lastAmbiguous);
+    lastModelOnly = !!q && !parsed.hasText && modelKeys.size > 0;
+    renderPick(q, lastAmbiguous, !!parsed.hasText, modelKeys);
 
     lastQuery = q; lastCount = q ? results.length + docRows.length : -1;
     const vlabel = (k) => allVocab.get(k) || data.vocab.get(k) || k;
@@ -806,6 +831,10 @@ function search(data, query, opts) {
         // 어떤 장비인지 먼저 정해야 정확한 답변을 만들 수 있어서, 선택 카드를 보여 주고 AI는 아직 부르지 않음
         const first = document.querySelector("#pick .pick-btn");
         if (first) first.focus();
+        return;
+      }
+      if (lastModelOnly) {                       // 장비명만 있고 질문이 없으면 AI를 부르지 않고, 이어서 입력하도록 안내
+        $("q").focus();
         return;
       }
       submitted = q;
