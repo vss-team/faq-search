@@ -122,6 +122,14 @@ h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.3; font-weight: 700; lette
 .ai-card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
 .ai-card h2 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
 .ai-body { max-width: 68ch; margin: 0; font-size: 15.5px; line-height: 1.8; color: var(--ink-2); white-space: pre-line; overflow-wrap: anywhere; }
+.ai-body strong { font-weight: 700; color: var(--ink); }
+.more { padding: 12px 18px; text-align: center; }
+.more button {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: 8px 18px; cursor: pointer;
+}
+.more button:hover { border-color: var(--blue); }
+.more button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .ai-note { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
 .ai-msg { margin: 0; font-size: 14.5px; color: var(--muted); }
 .feedback { margin: 14px 2px 0; font-size: 14px; color: var(--muted); }
@@ -192,6 +200,7 @@ const SYNONYM_GROUPS = [
   ["오류", "에러", "장애", "실패", "error"],
   ["위챗", "위챗페이", "wechat", "wechatpay", "위쳇"],
   ["토스", "토스페이", "tosspay"],
+  ["프론트", "front", "토스프론트", "tossfront"],
   ["네이버", "naver", "네이버페이", "npay", "엔페이", "n페이", "페이센터"],
   ["커넥트", "connect"],
   ["개통", "개통번호", "개통확인"],
@@ -211,7 +220,8 @@ const SYNONYM_GROUPS = [
      왼쪽은 모델명(영문 대문자·숫자만, 예: SCS-4200 → SCS4200), 오른쪽은 FAQ에 적힌 종류 표현입니다.
      새 모델은 한 줄을 추가하면 됩니다. */
 const MODEL_ALIASES = {
-  SCS4200: { label: "CAT 단말기", terms: ["CAT 단말기", "캣 단말기"] }
+  // 대부분의 모델은 노션 "제품 제조사 / A/S 연락처" 표의 제품 구분에서 자동으로 만들어집니다.
+  // 표에 없는 모델만 예시처럼 한 줄씩 추가하세요.  SCS4200: { label: "CAT 단말기", terms: ["CAT 단말기", "캣 단말기"] }
 };
 
 /* 너무 흔해서 검색을 흐리는 단어: 점수 비중을 낮춥니다. */
@@ -407,6 +417,7 @@ function search(data, query, opts) {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MAX_SHOWN = 30;
+  const INITIAL_SHOWN = 8;   // 처음에 보여 줄 FAQ 개수. 나머지는 '더 보기'로 펼침
   const MAX_DOCS = 5;
   const TOP_SHOWN = 10;
 
@@ -416,6 +427,7 @@ function search(data, query, opts) {
   /* ▼ AI 요약: Cloudflare Worker 주소를 따옴표 안에 넣으면 "AI로 정리해서 보기" 버튼이 켜집니다. 비워 두면 버튼이 나오지 않습니다. */
   const AI_URL = "https://faq-ai.vss-704.workers.dev";
   const aiCache = new Map();
+  const AI_TIMEOUT_MS = 40000;   // AI 답변을 기다리는 최대 시간
   const DEBUG = /[?&]debug\b/.test(location.search);   // 주소 끝에 ?debug=1 을 붙이면 AI 오류 상세를 화면에 보여줍니다
 
   let data = null, kdata = null, allVocab = new Map(), aliases = Object.assign({}, MODEL_ALIASES);
@@ -462,6 +474,13 @@ function search(data, query, opts) {
     if (q && q === lastQuery && lastCount === 0) logEvent("no_result", q, { n: 0 });
   }
 
+  /* AI 답변의 **굵게** 표시를 굵은 글씨로 바꾸고, 남는 마크다운 기호(#, `)는 지웁니다. 먼저 모두 이스케이프하므로 안전합니다. */
+  function formatAi(text) {
+    return esc(String(text).replace(/^#{1,6}\s*/gm, "").replace(/`/g, ""))
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/^\* /gm, "- ");
+  }
+
   function setupAi(q, rows, docRows) {
     const box = $("ai");
     box.innerHTML = "";
@@ -475,7 +494,7 @@ function search(data, query, opts) {
         const f = data.items.find((i) => i.raw.id === id) || (kdata && kdata.items.find((i) => i.raw.id === id));
         return f ? f.question : "";
       }).filter(Boolean);
-      box.innerHTML = '<div class="ai-card"><h2>AI 정리 답변</h2><p class="ai-body">' + esc(d.answer) + '</p>' +
+      box.innerHTML = '<div class="ai-card"><h2>AI 정리 답변</h2><p class="ai-body">' + formatAi(d.answer) + '</p>' +
         '<p class="ai-note">FAQ 내용을 바탕으로 AI가 정리한 답변입니다. 정확한 내용은 아래 FAQ 원문으로 확인하세요.' +
         (titles.length ? '<br>근거 FAQ: ' + titles.map(esc).join(" / ") : "") + '</p></div>';
     };
@@ -491,7 +510,8 @@ function search(data, query, opts) {
     b.addEventListener("click", async () => {
       b.disabled = true; b.textContent = "정리하는 중…";
       const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), 25000);
+      const t = setTimeout(() => ctl.abort(), AI_TIMEOUT_MS);
+      const t0 = Date.now();
       try {
         const res = await fetch(AI_URL, {
           method: "POST", signal: ctl.signal,
@@ -508,8 +528,11 @@ function search(data, query, opts) {
         if (!d.answer) throw new Error("empty");
         aiCache.set(key, d);
         showAnswer(d);
+        if (DEBUG) box.insertAdjacentHTML("beforeend", '<p class="ai-hint">[확인용] 화면 기준 ' + ((Date.now() - t0) / 1000).toFixed(1) + '초, 서버 AI ' + (d.ms != null ? (d.ms / 1000).toFixed(1) + "초" : "-") + '</p>');
       } catch (e) {
-        showMsg("AI 답변을 가져오지 못했습니다. 아래 FAQ를 확인해 주세요." + (DEBUG ? " [확인용: " + e.message + "]" : ""));
+        showMsg((e && e.name === "AbortError"
+          ? "AI 답변이 너무 오래 걸려 중단했습니다. 잠시 뒤 다시 눌러 주세요. 아래 FAQ를 먼저 확인해 보세요."
+          : "AI 답변을 가져오지 못했습니다. 아래 FAQ를 확인해 주세요.") + (DEBUG ? " [확인용: " + e.message + " / " + ((Date.now() - t0) / 1000).toFixed(1) + "초]" : ""));
       } finally { clearTimeout(t); }
     });
     box.append(b, hint);
@@ -645,7 +668,21 @@ function search(data, query, opts) {
 
     if (rows.length) {
       list.hidden = false;
-      rows.forEach((r, i) => list.appendChild(buildItem(r.it, q ? termsForHighlight(parsed, q) : [], !!q && i === 0)));
+      const hl = q ? termsForHighlight(parsed, q) : [];
+      rows.slice(0, INITIAL_SHOWN).forEach((r, i) => list.appendChild(buildItem(r.it, hl, !!q && i === 0)));
+      if (rows.length > INITIAL_SHOWN) {
+        const more = document.createElement("li");
+        more.className = "more";
+        const mb = document.createElement("button");
+        mb.type = "button";
+        mb.textContent = "나머지 " + (rows.length - INITIAL_SHOWN) + "건 더 보기";
+        mb.addEventListener("click", () => {
+          rows.slice(INITIAL_SHOWN).forEach((r) => list.insertBefore(buildItem(r.it, hl, false), more));
+          more.remove();
+        });
+        more.appendChild(mb);
+        list.appendChild(more);
+      }
       if (q && LOG_URL) {
         fb.append("찾는 답이 아닌가요?");
         const b = document.createElement("button");
