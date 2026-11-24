@@ -503,7 +503,9 @@ function search(data, query, opts) {
     if (!ids.length) { clearAi(); return; }          // 근거가 될 자료가 없으면 AI를 부르지 않음
     const key = q.toLowerCase() + "|" + ids.join(",");
     if (aiCache.has(key)) { showAnswer(aiCache.get(key)); return; }
-    if (Date.now() < aiPausedUntil) { showFallback(aiPausedUntil - Date.now() > AI_PAUSE_ERROR_MS ? "busy" : "error"); return; }
+    // AI가 쉬는 중(한도 소진·오류)에는 새 답변은 만들지 않고, 서버에 저장된 답변이 있을 때만 받아 옵니다.
+    const cacheOnly = Date.now() < aiPausedUntil;
+    const pausedKind = aiPausedUntil - Date.now() > AI_PAUSE_ERROR_MS ? "busy" : "error";
 
     showLoading();
     const ctl = new AbortController();
@@ -515,10 +517,14 @@ function search(data, query, opts) {
       const res = await fetch(AI_URL, {
         method: "POST", signal: ctl.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q: q.slice(0, 200), ids, debug: DEBUG || undefined })
+        body: JSON.stringify({ q: q.slice(0, 200), ids, cacheOnly: cacheOnly || undefined, debug: DEBUG || undefined })
       });
       if (aiCtl !== ctl) return;                      // 그 사이 다른 질문으로 바뀜
-      if (res.status === 429) { aiPausedUntil = Date.now() + AI_PAUSE_BUSY_MS; showFallback("busy"); return; }
+      if (res.status === 429) {
+        if (!cacheOnly) aiPausedUntil = Date.now() + AI_PAUSE_BUSY_MS;
+        showFallback("busy");
+        return;
+      }
       if (!res.ok) {
         let det = "";
         try { det = (await res.json()).detail || ""; } catch (e2) { /* 상세 없음 */ }
@@ -526,13 +532,15 @@ function search(data, query, opts) {
       }
       const d = await res.json();
       if (aiCtl !== ctl) return;
+      if (d.miss) { showFallback(pausedKind); return; }     // 쉬는 중인데 저장된 답변도 없음 → 검색 결과만
       if (!d.answer) throw new Error("빈 답변");
       aiCache.set(key, d);
-      showAnswer(d, "화면 기준 " + ((Date.now() - t0) / 1000).toFixed(1) + "초, 서버 AI " + (d.ms != null ? (d.ms / 1000).toFixed(1) + "초" : "-"));
+      showAnswer(d, (d.cached ? "저장된 답변(AI 미사용), " : "") + "화면 기준 " + ((Date.now() - t0) / 1000).toFixed(1) + "초" +
+        (d.ms != null ? ", 서버 AI " + (d.ms / 1000).toFixed(1) + "초" : ""));
     } catch (e) {
       if (aiCtl !== ctl) return;                      // 사용자가 다른 질문을 해서 취소된 경우는 조용히 끝냄
-      aiPausedUntil = Date.now() + AI_PAUSE_ERROR_MS;
-      showFallback("error", (timedOut ? "시간 초과" : e.message) + " / " + ((Date.now() - t0) / 1000).toFixed(1) + "초");
+      if (!cacheOnly) aiPausedUntil = Date.now() + AI_PAUSE_ERROR_MS;
+      showFallback(cacheOnly ? pausedKind : "error", (timedOut ? "시간 초과" : e.message) + " / " + ((Date.now() - t0) / 1000).toFixed(1) + "초");
     } finally {
       clearTimeout(tm);
       if (aiCtl === ctl) aiCtl = null;
