@@ -1,0 +1,2 @@
+# faq-search
+FAQ
