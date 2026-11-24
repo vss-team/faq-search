@@ -188,7 +188,8 @@ const SYNONYM_GROUPS = [
   ["오류", "에러", "장애", "실패", "error"],
   ["위챗", "위챗페이", "wechat", "wechatpay", "위쳇"],
   ["토스", "토스페이", "tosspay"],
-  ["네이버페이", "npay", "엔페이", "n페이", "페이센터"],
+  ["네이버", "naver", "네이버페이", "npay", "엔페이", "n페이", "페이센터"],
+  ["커넥트", "connect"],
   ["개통", "개통번호", "개통확인"],
   ["비밀번호", "비번", "패스워드", "암호"],
   ["키오스크", "무인결제", "셀프결제", "무인"],
@@ -201,6 +202,8 @@ const SYNONYM_GROUPS = [
   ["지원기종", "지원단말기", "가능단말기", "되는기계", "되는단말기", "사용가능단말기"]
 ];
 
+/* 너무 흔해서 검색을 흐리는 단어: 점수 비중을 낮춥니다. */
+const WEAK_WORDS = new Set(["연동", "사용", "확인", "관련", "안내", "방법"]);
 const STOPWORDS = new Set([
   "어떻게", "방법", "무엇", "뭐", "뭔가요", "알려주세요", "알려줘", "좀", "그리고", "하는", "해야",
   "하나요", "있나요", "있어요", "되나요", "됩니다", "어디", "언제", "문의", "관련", "대해", "대한",
@@ -284,7 +287,7 @@ function parseQuery(query, vocab) {
     const cw = compact(w);
     if (cw.length < 2) return;
     if (groupTerms.some((t) => t.includes(cw) || cw.includes(t))) return;
-    units.push({ kind: "token", terms: [cw], label: w });
+    units.push({ kind: "token", terms: [cw], label: w, w: WEAK_WORDS.has(w) ? 0.3 : 1 });
   });
   return { matched, units, hasText: units.length > 0 };
 }
@@ -306,8 +309,10 @@ function search(data, query, opts) {
     const hitModel = modelKeys.size > 0 && [...modelKeys].some((k) => it.modelKeys.has(k));
     if (pickedKey && !it.general && !it.modelKeys.has(pickedKey)) continue;
 
-    let base = 0, hits = 0;
+    let base = 0, hitW = 0, totalW = 0;
     for (const u of pq.units) {
+      const w = u.w || 1;
+      totalW += w;
       let s = 0;
       if (u.terms.some((t) => it.ck.includes(t))) s += 6;
       if (u.terms.some((t) => it.cq.includes(t))) s += 4;
@@ -319,10 +324,10 @@ function search(data, query, opts) {
         const ok = bg.filter((b) => pool.includes(b)).length;
         if (bg.length && ok / bg.length >= 0.6) s += 3 * (ok / bg.length);
       }
-      if (s > 0) hits++;
-      base += s;
+      if (s > 0) hitW += w;
+      base += s * w;
     }
-    if (pq.units.length) base *= 0.4 + 0.6 * (hits / pq.units.length);
+    if (totalW) base *= 0.4 + 0.6 * (hitW / totalW);
 
     if (pq.hasText) {
       if (base < 2.5) continue;
@@ -342,7 +347,12 @@ function search(data, query, opts) {
     out.push({ it, score });
   }
   out.sort((a, b) => b.score - a.score);
-  return { results: out, parsed: pq, modelKeys };
+  let results = out;
+  if (pq.hasText && out.length > 2) {
+    const cut = out[0].score * 0.3;   // 1위 점수의 30%에 못 미치는 결과는 잡음으로 보고 숨김 (최소 2건은 유지)
+    results = out.filter((r, i) => i < 2 || r.score >= cut);
+  }
+  return { results, parsed: pq, modelKeys };
 }
 </script>
 
@@ -359,6 +369,7 @@ function search(data, query, opts) {
   /* ▼ AI 요약: Cloudflare Worker 주소를 따옴표 안에 넣으면 "AI로 정리해서 보기" 버튼이 켜집니다. 비워 두면 버튼이 나오지 않습니다. */
   const AI_URL = "https://faq-ai.vss-704.workers.dev";
   const aiCache = new Map();
+  const DEBUG = /[?&]debug\b/.test(location.search);   // 주소 끝에 ?debug=1 을 붙이면 AI 오류 상세를 화면에 보여줍니다
 
   let data = null, category = "", modelKey = "", timer = null, idleTimer = null;
   let lastQuery = "", lastCount = -1, lastModelLabel = "";
@@ -437,16 +448,20 @@ function search(data, query, opts) {
         const res = await fetch(AI_URL, {
           method: "POST", signal: ctl.signal,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q: q.slice(0, 200), ids })
+          body: JSON.stringify({ q: q.slice(0, 200), ids, debug: DEBUG || undefined })
         });
         if (res.status === 429) { showMsg("지금 AI 답변 요청이 많아 잠시 제공하지 못합니다. 아래 FAQ를 확인해 주세요."); return; }
-        if (!res.ok) throw new Error("status " + res.status);
+        if (!res.ok) {
+          let det = "";
+          try { det = (await res.json()).detail || ""; } catch (e2) { /* 상세 없음 */ }
+          throw new Error("상태 " + res.status + (det ? ": " + det : ""));
+        }
         const d = await res.json();
         if (!d.answer) throw new Error("empty");
         aiCache.set(key, d);
         showAnswer(d);
       } catch (e) {
-        showMsg("AI 답변을 가져오지 못했습니다. 아래 FAQ를 확인해 주세요.");
+        showMsg("AI 답변을 가져오지 못했습니다. 아래 FAQ를 확인해 주세요." + (DEBUG ? " [확인용: " + e.message + "]" : ""));
       } finally { clearTimeout(t); }
     });
     box.append(b, hint);
