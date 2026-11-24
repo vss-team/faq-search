@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>NHN KCP FAQ 질문 기록</title>
+<style>
+:root {
+  --ink: #191919; --ink-2: #2E2E2E; --muted: #5C5C5C; --line: #E0E0E0; --line-strong: #CACACA;
+  --bg: #F6F6F6; --surface: #FFFFFF; --blue: #2196F3; --blue-dim: #1a78c2; --red: #C62828;
+  --font: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #F2F2F2; --ink-2: #E0E0E0; --muted: #B5B5B5; --line: #3A3A3A; --line-strong: #555; --bg: #191919; --surface: #242424; --red: #FF8A80; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 64px; }
+h1 { margin: 0 0 6px; font-size: 26px; line-height: 1.25; letter-spacing: -0.015em; }
+h2 { margin: 28px 0 10px; font-size: 17px; }
+.lead { margin: 0 0 20px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+input[type="password"], select {
+  font: inherit; height: 42px; padding: 0 12px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 8px;
+}
+input[type="password"] { flex: 1; min-width: 220px; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+button {
+  font: inherit; font-weight: 700; height: 42px; padding: 0 18px; color: #191919; background: var(--blue);
+  border: 0; border-radius: 8px; cursor: pointer;
+}
+button:hover { background: var(--blue-dim); }
+button.sub { font-weight: 400; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); }
+button.sub:hover { border-color: var(--blue); background: var(--surface); }
+button:disabled { opacity: .5; cursor: default; }
+.msg { margin: 10px 0 0; color: var(--muted); }
+.msg.err { color: var(--red); }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.stat b { display: block; font-size: 22px; line-height: 1.2; }
+.stat span { font-size: 13px; color: var(--muted); }
+.tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .tables { grid-template-columns: 1fr; } }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; white-space: nowrap; }
+td.when { white-space: nowrap; color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 12.5px; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 4px; white-space: nowrap; }
+.ans { max-width: 460px; white-space: pre-line; overflow-wrap: anywhere; }
+.ans.clip { max-height: 4.6em; overflow: hidden; }
+.src { font-size: 12.5px; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+.toggle { font: inherit; font-weight: 400; font-size: 12.5px; height: auto; padding: 0; background: none; color: var(--blue-dim); text-decoration: underline; border-radius: 0; }
+.toggle:hover { background: none; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>질문 기록</h1>
+  <p class="lead">NHN KCP FAQ에 들어온 질문과 AI 답변을 확인하고 엑셀(CSV)로 내려받는 운영팀 전용 화면입니다. 질문은 익명으로 기록되며 이메일과 전화번호처럼 보이는 부분은 가려서 저장됩니다.</p>
+
+  <section class="card" id="login">
+    <form class="row" id="loginForm" autocomplete="off">
+      <input type="password" id="key" aria-label="관리 암호" placeholder="관리 암호를 입력하세요">
+      <button type="submit">열기</button>
+    </form>
+    <p class="msg" id="loginMsg"></p>
+  </section>
+
+  <section id="main" hidden>
+    <div class="card row" style="justify-content: space-between">
+      <div class="row">
+        <label>기간 <select id="days"><option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 90일</option><option value="365">최근 1년</option></select></label>
+        <label>구분 <select id="status"></select></label>
+        <button type="button" class="sub" id="reload">새로고침</button>
+      </div>
+      <button type="button" id="csv">엑셀(CSV)로 내려받기</button>
+    </div>
+    <p class="msg" id="msg"></p>
+
+    <h2>요약</h2>
+    <div class="stats" id="stats"></div>
+
+    <div class="tables">
+      <div>
+        <h2>자주 들어온 질문 TOP 30</h2>
+        <div class="scroll"><table><thead><tr><th>횟수</th><th>질문(예)</th></tr></thead><tbody id="top"></tbody></table></div>
+      </div>
+      <div>
+        <h2>답을 못 한 질문 TOP 30</h2>
+        <div class="scroll"><table><thead><tr><th>횟수</th><th>질문(예)</th></tr></thead><tbody id="unanswered"></tbody></table></div>
+        <p class="msg">AI가 “확인되지 않음”이라고 답했거나, 검색 결과가 없었거나, “찾는 답이 없어요”를 누른 질문입니다. FAQ를 보완할 후보입니다.</p>
+      </div>
+    </div>
+
+    <h2>질문 목록</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>일시</th><th>구분</th><th>질문</th><th>AI 답변과 근거</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p class="row" style="margin-top: 12px"><button type="button" class="sub" id="more" hidden>더 보기</button></p>
+  </section>
+</main>
+
+<script>
+(function () {
+  /* ▼ 데이터를 가져올 주소(Cloudflare Worker). 검색 화면의 AI 주소 뒤에 /admin/data 를 붙인 것입니다. */
+  const API = "https://faq-ai.vss-704.workers.dev/admin/data";
+  const PAGE = 200;
+  const LABEL = {
+    ai: "AI 새 답변", cache: "저장된 답변", notfound: "AI가 확인 못 함", miss: "한도 소진(답변 없음)",
+    busy: "AI 한도·혼잡", error: "AI 오류", no_result: "검색 결과 없음", not_found: "찾는 답 없음(버튼)"
+  };
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+
+  let key = "";
+  let offset = 0;
+
+  const kst = (iso) => {
+    try {
+      return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(iso));
+    } catch (e) { return String(iso); }
+  };
+
+  async function call(body) {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": key },
+      body: JSON.stringify(body)
+    });
+    if (res.status === 401) throw new Error("관리 암호가 맞지 않습니다.");
+    if (res.status === 429) throw new Error("시도가 너무 많습니다. 1분 뒤에 다시 해 주세요.");
+    if (res.status === 404) throw new Error("관리 기능이 아직 설정되지 않았습니다. (Worker에 ADMIN_KEY와 DB 연결이 필요합니다)");
+    if (!res.ok) throw new Error("데이터를 가져오지 못했습니다. (" + res.status + ")");
+    return res.json();
+  }
+
+  function filters() { return { days: Number($("days").value), status: $("status").value || undefined }; }
+
+  function renderSummary(d) {
+    const box = $("stats"); box.innerHTML = "";
+    const by = {}; let total = 0;
+    (d.counts || []).forEach((r) => { by[r.status] = r.c; total += r.c; });
+    const add = (n, label) => { const s = el("div", null, "stat"); s.append(el("b", String(n)), el("span", label)); box.appendChild(s); };
+    add(total, "전체 기록");
+    Object.keys(LABEL).forEach((k) => { if (by[k]) add(by[k], LABEL[k]); });
+    const fill = (id, list) => {
+      const tb = $(id); tb.innerHTML = "";
+      if (!list.length) { const tr = el("tr"); const td = el("td", "아직 없습니다."); td.colSpan = 2; tr.appendChild(td); tb.appendChild(tr); return; }
+      list.forEach((r) => { const tr = el("tr"); tr.append(el("td", String(r.c), "num"), el("td", r.q)); tb.appendChild(tr); });
+    };
+    fill("top", d.top || []); fill("unanswered", d.unanswered || []);
+  }
+
+  function addRows(list) {
+    const tb = $("rows");
+    list.forEach((r) => {
+      const tr = el("tr");
+      tr.append(el("td", kst(r.ts), "when"));
+      const st = el("td"); st.appendChild(el("span", LABEL[r.status] || r.status, "tag")); tr.appendChild(st);
+      tr.appendChild(el("td", r.q));
+      const a = el("td");
+      if (r.answer) {
+        const t = el("div", r.answer, "ans clip"); a.appendChild(t);
+        if (r.answer.length > 120 || r.answer.split("\n").length > 3) {
+          const b = el("button", "펼치기", "toggle"); b.type = "button";
+          b.addEventListener("click", () => { const c = t.classList.toggle("clip"); b.textContent = c ? "펼치기" : "접기"; });
+          a.appendChild(b);
+        }
+      } else { a.appendChild(el("span", "—", "src")); }
+      if (r.src) a.appendChild(el("div", "근거: " + r.src, "src"));
+      tr.appendChild(a);
+      tb.appendChild(tr);
+    });
+  }
+
+  async function load(reset) {
+    $("msg").textContent = "불러오는 중…"; $("msg").className = "msg";
+    try {
+      if (reset) {
+        offset = 0; $("rows").innerHTML = "";
+        const f = filters();
+        renderSummary(await call({ mode: "summary", days: f.days }));
+      }
+      const f = filters();
+      const d = await call({ days: f.days, status: f.status, limit: PAGE, offset });
+      addRows(d.rows || []);
+      offset += (d.rows || []).length;
+      $("more").hidden = !d.hasMore;
+      $("msg").textContent = offset ? "질문 " + offset + "건을 보고 있습니다." + (d.hasMore ? " (더 보기로 이어서 볼 수 있습니다)" : "") : "이 조건에 해당하는 기록이 없습니다.";
+    } catch (e) {
+      $("msg").textContent = e.message; $("msg").className = "msg err";
+    }
+  }
+
+  /* CSV: 엑셀에서 수식으로 실행될 수 있는 글자(= + - @)로 시작하면 앞에 ' 를 붙여 안전하게 만듭니다. */
+  const cell = (v) => {
+    let s = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+
+  async function downloadCsv() {
+    const btn = $("csv"); btn.disabled = true;
+    try {
+      const f = filters();
+      const out = [["일시(한국시간)", "구분", "질문", "AI 답변", "근거 자료", "AI 응답시간(초)"].map(cell).join(",")];
+      let off = 0, pages = 0;
+      for (;;) {
+        $("msg").textContent = "내려받을 데이터를 모으는 중… " + off + "건"; $("msg").className = "msg";
+        const d = await call({ days: f.days, status: f.status, limit: PAGE, offset: off });
+        (d.rows || []).forEach((r) => out.push([kst(r.ts), LABEL[r.status] || r.status, r.q, r.answer || "", r.src || "", r.ms == null ? "" : (r.ms / 1000).toFixed(1)].map(cell).join(",")));
+        off += (d.rows || []).length; pages++;
+        if (!d.hasMore || pages >= 50) break;       // 한 번에 최대 약 1만 건
+      }
+      const blob = new Blob(["\ufeff" + out.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "faq-질문기록-" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      $("msg").textContent = "CSV " + (out.length - 1) + "건을 내려받았습니다."; $("msg").className = "msg";
+    } catch (e) {
+      $("msg").textContent = e.message; $("msg").className = "msg err";
+    } finally { btn.disabled = false; }
+  }
+
+  function open(k) {
+    key = k;
+    try { sessionStorage.setItem("faq-admin-key", k); } catch (e) { /* 저장이 안 돼도 사용에는 지장 없음 */ }
+    $("login").hidden = true; $("main").hidden = false;
+    load(true);
+  }
+
+  // 구분 선택 목록
+  const sel = $("status");
+  sel.appendChild(new Option("전체", ""));
+  Object.keys(LABEL).forEach((k) => sel.appendChild(new Option(LABEL[k], k)));
+
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const k = $("key").value.trim();
+    if (!k) return;
+    key = k; $("loginMsg").textContent = "확인 중…"; $("loginMsg").className = "msg";
+    try { await call({ mode: "summary", days: 1 }); open(k); }
+    catch (err) { $("loginMsg").textContent = err.message; $("loginMsg").className = "msg err"; }
+  });
+  $("reload").addEventListener("click", () => load(true));
+  $("days").addEventListener("change", () => load(true));
+  $("status").addEventListener("change", () => load(true));
+  $("more").addEventListener("click", () => load(false));
+  $("csv").addEventListener("click", downloadCsv);
+
+  let saved = "";
+  try { saved = sessionStorage.getItem("faq-admin-key") || ""; } catch (e) { saved = ""; }
+  if (saved) { key = saved; call({ mode: "summary", days: 1 }).then(() => open(saved)).catch(() => { try { sessionStorage.removeItem("faq-admin-key"); } catch (e) { /* 무시 */ } }); }
+})();
+</script>
+</body>
+</html>
