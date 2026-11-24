@@ -64,6 +64,21 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 /* 안내문 */
 .notice-small { margin: 8px 2px 0; font-size: 13px; color: var(--muted); }
 
+/* 장비 선택 */
+.pick { margin: 14px 0 0; }
+.pick-card { background: var(--surface); border: 1px solid var(--line-strong); border-left: 3px solid var(--blue); border-radius: 8px; padding: 16px 18px; }
+.pick-card p { margin: 0 0 10px; font-size: 15px; }
+.pick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick-btn {
+  font: inherit; text-align: left; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 14px; cursor: pointer; line-height: 1.35;
+}
+.pick-btn b { display: block; font-size: 15.5px; }
+.pick-btn span { display: block; font-size: 12.5px; color: var(--muted); }
+.pick-btn:hover { border-color: var(--blue); }
+.pick-btn:focus-visible, .pick-skip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pick-skip { margin-top: 10px; font: inherit; font-size: 13.5px; color: var(--muted); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
 /* AI 대기 표시 */
 .ai-loading { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 15px; }
 .spinner { flex: none; width: 18px; height: 18px; border: 2px solid var(--line-strong); border-top-color: var(--blue); border-radius: 50%; animation: spin .9s linear infinite; }
@@ -155,6 +170,7 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
   </form>
   <p class="notice-small" id="aiNotice" hidden>질문하면 입력한 내용과 관련 FAQ가 AI 요약을 위해 전송됩니다. 가맹점 정보나 연락처 같은 개인정보는 입력하지 마세요.</p>
 
+  <div class="pick" id="pick" hidden></div>
   <div class="ai-wrap" id="ai" aria-live="polite"></div>
   <div class="status" id="status" aria-live="polite"></div>
   <ul class="list" id="list" hidden></ul>
@@ -286,18 +302,36 @@ function deriveAliases(kItems) {
 }
 
 /* 질문 → 검색 조건(모델, 키워드, 동의어 묶음)으로 해석 */
+/* 모델명(vk) 안에 입력한 번호(key)가 들어 있는지: 숫자가 더 긴 숫자의 일부이면 제외 (예: 4200 은 SCS4200·KCPP4200N 에는 맞고 KCPC14200 에는 안 맞음) */
+function modelMatches(vk, key) {
+  let from = 0, i;
+  while ((i = vk.indexOf(key, from)) !== -1) {
+    const before = vk[i - 1], after = vk[i + key.length];
+    const okL = !(/\d/.test(key[0]) && before && /\d/.test(before));
+    const okR = !(/\d/.test(key[key.length - 1]) && after && /\d/.test(after));
+    if (okL && okR) return true;
+    from = i + 1;
+  }
+  return false;
+}
+
 function parseQuery(query, vocab) {
   const upper = String(query || "").toUpperCase();
   const matched = new Set();
+  const ambiguous = [];   // 숫자만 입력해서 여러 장비에 해당하는 경우: [{ token, keys }]
   let rest = String(query || "");
   (upper.match(QUERY_MODEL_RE) || []).forEach((tok) => {
     const key = tok.replace(/[^A-Z0-9]/g, "");
     if (key.length < 4) return;
-    let hit = false;
+    const exact = [], part = [];
     for (const vk of vocab.keys()) {
-      if (vk === key || vk.endsWith(key)) { matched.add(vk); hit = true; }
+      if (vk === key) exact.push(vk);
+      else if (modelMatches(vk, key)) part.push(vk);
     }
-    if (hit) rest = rest.replace(new RegExp(tok.replace(/[-]/g, "\\-?"), "i"), " ");
+    const hit = exact.length ? exact : part;       // 정확한 모델명을 썼으면 그것만, 번호만 썼으면 해당하는 모든 장비
+    hit.forEach((vk) => matched.add(vk));
+    if (!exact.length && hit.length > 1) ambiguous.push({ token: tok, keys: hit });
+    if (hit.length) rest = rest.replace(new RegExp(tok.replace(/[-]/g, "\\-?"), "i"), " ");
   });
 
   const cq = compact(rest);
@@ -320,7 +354,7 @@ function parseQuery(query, vocab) {
     if (groupTerms.some((t) => t.includes(cw) || cw.includes(t))) return;
     units.push({ kind: "token", terms: [cw], label: w, w: WEAK_WORDS.has(w) ? 0.3 : 1 });
   });
-  return { matched, units, hasText: units.length > 0 };
+  return { matched, units, hasText: units.length > 0, ambiguous };
 }
 
 const bigrams = (s) => { const o = []; for (let i = 0; i < s.length - 1; i++) o.push(s.slice(i, i + 2)); return o; };
@@ -420,7 +454,7 @@ function search(data, query, opts) {
   let data = null, kdata = null, allVocab = new Map(), aliases = Object.assign({}, MODEL_ALIASES);
   let timer = null, idleTimer = null;
   let lastQuery = "", lastCount = -1, lastModelLabel = "";
-  let lastRows = [], lastDocRows = [];
+  let lastRows = [], lastDocRows = [], lastAmbiguous = [], acceptedAmbiguity = "";
   let submitted = "", aiCtl = null, aiState = "idle", aiPausedUntil = 0;   // aiState: idle | loading | done | fallback
   const sent = new Set();
   let sentCount = 0;
@@ -618,6 +652,49 @@ function search(data, query, opts) {
     return t;
   }
 
+  /* 입력한 글에서 번호(token)를 정확한 모델명으로 바꿉니다. 앞뒤가 영문·숫자로 이어진 곳은 건너뜁니다. */
+  function replaceToken(text, token, label) {
+    const low = text.toLowerCase(), t = token.toLowerCase();
+    let from = 0, i;
+    while ((i = low.indexOf(t, from)) !== -1) {
+      const b = text[i - 1], a = text[i + t.length];
+      if (!(b && /[A-Za-z0-9]/.test(b)) && !(a && /[A-Za-z0-9]/.test(a))) return text.slice(0, i) + label + text.slice(i + t.length);
+      from = i + 1;
+    }
+    return (text + " " + label).trim();
+  }
+
+  /* 번호만 입력해서 여러 장비에 해당하면, 정확한 장비를 고르게 합니다. */
+  function renderPick(q, amb) {
+    const box = $("pick");
+    box.innerHTML = ""; box.hidden = true;
+    if (!q || !amb.length) return;
+    const a = amb[0];
+    const vlabel = (k) => allVocab.get(k) || k;
+    box.hidden = false;
+    const card = document.createElement("div");
+    card.className = "pick-card";
+    card.innerHTML = '<p><strong>“' + esc(a.token) + '”</strong>에 해당하는 장비가 여러 개입니다. 어떤 장비인가요?</p><div class="pick-list"></div>';
+    const list = card.querySelector(".pick-list");
+    a.keys.slice(0, 8).forEach((k) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "pick-btn";
+      const kind = aliases[k] && aliases[k].label ? aliases[k].label : "";
+      b.innerHTML = "<b>" + esc(vlabel(k)) + "</b>" + (kind ? "<span>" + esc(kind) + "</span>" : "");
+      b.addEventListener("click", () => {
+        $("q").value = replaceToken($("q").value, a.token, vlabel(k));
+        ask();
+      });
+      list.appendChild(b);
+    });
+    const skip = document.createElement("button");
+    skip.type = "button"; skip.className = "pick-skip";
+    skip.textContent = "잘 모르겠어요. 이대로 질문하기";
+    skip.addEventListener("click", () => { acceptedAmbiguity = q; ask(); });
+    card.appendChild(skip);
+    box.appendChild(card);
+  }
+
   /* 키워드 검색 결과(FAQ + 매뉴얼·표)를 화면에 그립니다. 입력할 때마다 바로 갱신되고, AI 요약은 질문을 보낼 때만 붙습니다. */
   function render() {
     const q = $("q").value.trim();
@@ -646,6 +723,8 @@ function search(data, query, opts) {
     let rows = q ? results.slice(0, MAX_SHOWN)
       : results.slice().sort((a, b) => (b.it.freq - a.it.freq) || (b.it.imp - a.it.imp)).slice(0, TOP_SHOWN);
     lastRows = rows; lastDocRows = docRows;
+    lastAmbiguous = parsed.ambiguous || [];
+    renderPick(q, lastAmbiguous);
 
     lastQuery = q; lastCount = q ? results.length + docRows.length : -1;
     const vlabel = (k) => allVocab.get(k) || data.vocab.get(k) || k;
@@ -723,6 +802,12 @@ function search(data, query, opts) {
     const same = q === submitted;
     if (!(same && (aiState === "loading" || aiState === "done"))) {
       render();
+      if (lastAmbiguous.length && acceptedAmbiguity !== q) {
+        // 어떤 장비인지 먼저 정해야 정확한 답변을 만들 수 있어서, 선택 카드를 보여 주고 AI는 아직 부르지 않음
+        const first = document.querySelector("#pick .pick-btn");
+        if (first) first.focus();
+        return;
+      }
       submitted = q;
       askAi(q);
     }
