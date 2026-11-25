@@ -680,7 +680,7 @@ function search(data, query, opts) {
       if (!d.answer) throw new Error("빈 답변");
       aiCache.set(key, d);
       showAnswer(d, (d.cached ? "저장된 답변(AI 미사용), " : "") + "화면 기준 " + ((Date.now() - t0) / 1000).toFixed(1) + "초" +
-        (d.ms != null ? ", 서버 AI " + (d.ms / 1000).toFixed(1) + "초" : ""));
+        (d.ms != null ? ", 서버 AI " + (d.ms / 1000).toFixed(1) + "초" : "") + (d.cs ? ", 저장소: " + d.cs : ""));
     } catch (e) {
       if (aiCtl !== ctl) return;                      // 사용자가 다른 질문을 해서 취소된 경우는 조용히 끝냄
       if (!cacheOnly) aiPausedUntil = Date.now() + AI_PAUSE_ERROR_MS;
