@@ -12,14 +12,10 @@
   --muted: #5C5C5C;
   --line: #E0E0E0;
   --line-strong: #CACACA;
-  --bg: #FAF6F0;
+  --bg: #F6F6F6;
   --surface: #FFFFFF;
-  --navy: #24366A;
-  --latte: #E9D9C6;
-  --hero-a: #FFF9F1;
-  --hero-b: #F1E3D1;
   --blue: #2196F3;
-  --blue-dim: #1a78c2;
+  --blue-dim: #1A78C2;   /* KCP Blue + Dimmer 20% — 버튼 hover·pressed에만 사용 */
   --font: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -31,10 +27,6 @@
     --line-strong: #555555;
     --bg: #191919;
     --surface: #242424;
-    --navy: #AFC3F2;
-    --latte: #4A3F35;
-    --hero-a: #2B2622;
-    --hero-b: #342C25;
   }
 }
 * { box-sizing: border-box; }
@@ -113,16 +105,17 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 .q:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .q[aria-expanded="true"] { border-left-color: var(--blue); }
 .q-title { display: block; font-size: 16.5px; font-weight: 600; line-height: 1.5; letter-spacing: -0.005em; }
-.q-title mark { background: rgba(33,150,243,.22); color: inherit; border-radius: 2px; padding: 0 1px; }
+.q-title mark { background: transparent; color: inherit; text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 3px; text-underline-offset: 4px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .tag { font-size: 12.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; }
 .a { padding: 0 18px 20px 21px; border-left: 3px solid var(--blue); }
 .a[hidden] { display: none; }
 .a-body { max-width: 68ch; margin: 0; font-size: 15.5px; line-height: 1.8; color: var(--ink-2); white-space: pre-line; overflow-wrap: anywhere; }
-.a-body a { color: var(--blue-dim); text-decoration: underline; text-underline-offset: 2px; }
+.a-body a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .a-meta { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
 .a-link { margin: 12px 0 0; font-size: 16.5px; }
-.a-link a { color: var(--blue-dim); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.a-link a { color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.a-link a .go, .ai-src a .go { color: var(--blue); font-weight: 700; }
 /* 펼칠 때 글씨가 타이핑되는 효과: 끝나면 날짜·원문 링크가 부드럽게 나타남 */
 .a .a-meta, .a .a-link { transition: opacity .25s ease; }
 .a.is-typing .a-meta, .a.is-typing .a-link { opacity: 0; }
@@ -159,6 +152,17 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 .more button:hover { border-color: var(--blue); }
 .more button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .ai-note { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ai-src { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.ai-src h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.ai-src ul { list-style: none; margin: 0; padding: 0; }
+.ai-src li + li { border-top: 1px solid var(--line); }
+.ai-src li { font-size: 15.5px; line-height: 1.45; }
+.ai-src a, .ai-src .src-plain { display: block; padding: 9px 2px; color: var(--ink-2); }
+.ai-src a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.ai-src a:hover { text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.ai-src a:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; border-radius: 4px; }
+.ai-src a .go { margin-left: 4px; white-space: nowrap; }
 .ai-msg { margin: 0; font-size: 14.5px; color: var(--muted); }
 .feedback { margin: 14px 2px 0; font-size: 14px; color: var(--muted); }
 .feedback button {
@@ -173,33 +177,32 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 .updated { margin-top: 6px; font-size: 13px; color: var(--muted); }
 
 /* ===== Kei 캐릭터 ===== */
-.hero { position: relative; display: grid; grid-template-columns: 1fr 190px; align-items: end; gap: 8px; margin: 0 0 22px; padding: 24px 0 0 24px; background: linear-gradient(135deg, var(--hero-a), var(--hero-b)); border: 1px solid var(--latte); border-radius: 18px; overflow: hidden; }
-.hero-text { padding-bottom: 24px; }
-.hero h1 { font-size: 15px; font-weight: 700; color: var(--navy); letter-spacing: 0; margin: 0 0 12px; }
-.bubble { position: relative; background: var(--surface); border: 1px solid var(--latte); border-radius: 16px 16px 16px 16px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(80, 55, 30, .08); animation: pop .45s cubic-bezier(.2,.9,.3,1.25) .15s both; }
-.bubble::after { content: ""; position: absolute; right: -9px; bottom: 22px; width: 16px; height: 16px; background: var(--surface); border-right: 1px solid var(--latte); border-top: 1px solid var(--latte); transform: rotate(45deg); }
-.bubble .hello { margin: 0 0 6px; font-size: 20px; font-weight: 700; line-height: 1.4; color: var(--ink); }
-.bubble .sub { margin: 0; font-size: 15px; color: var(--ink-2); }
+.hero { position: relative; display: grid; grid-template-columns: 1fr 200px; align-items: end; gap: 8px; margin: 0 0 20px; padding: 20px 0 0 26px; background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: 18px; overflow: hidden; }
+.hero-text { align-self: center; padding-bottom: 22px; }
+.hero h1 { display: flex; align-items: center; gap: 16px; margin: 0 0 14px; font-size: 30px; font-weight: 700; color: var(--ink); letter-spacing: 0; line-height: 1; }
+.brand-ci { display: block; width: 240px; height: auto; }          /* CI 원본 비율(약 5.58:1) 유지, 변형·재착색 없음 */
+.ci-dark { display: none; }
+.hero h1 .svc { padding-left: 16px; border-left: 2px solid var(--line-strong); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ci-light { display: none; } :root:not([data-theme="light"]) .ci-dark { display: block; } }
+.bubble { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; animation: pop .45s cubic-bezier(.2,.9,.3,1.25) .15s both; }
+.bubble::after { content: ""; position: absolute; right: -9px; bottom: 22px; width: 16px; height: 16px; background: var(--bg); border-right: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
+.bubble .hello { margin: 0 0 6px; font-size: 25px; font-weight: 700; line-height: 1.4; color: var(--ink); }
+.bubble .sub { margin: 0; font-size: 17px; color: var(--ink-2); }
 @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
-.hero-kei { align-self: end; width: 190px; height: 250px; object-fit: cover; object-position: 50% 0; display: block; border-radius: 120px 120px 0 0; border: 4px solid var(--surface); border-bottom: 0; }
+.hero-kei { align-self: end; width: 200px; height: 262px; object-fit: cover; object-position: 50% 0; display: block; border-radius: 120px 120px 0 0; border: 4px solid var(--surface); border-bottom: 0; }
 
-.examples { margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
-.examples[hidden] { display: none; }
-.ex-btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
-.ex-btn:hover { border-color: var(--blue); }
-.ex-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-.kei-ava { flex: none; display: block; border-radius: 50%; object-fit: cover; background: var(--latte); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--latte); }
+.kei-ava { flex: none; display: block; border-radius: 50%; object-fit: cover; background: var(--bg); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
 .a:not([hidden]) { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding-top: 2px; }
 .a-ava { width: 36px; height: 36px; margin-top: 3px; }
 .a-main { min-width: 0; }
-.kei-badge { display: inline-block; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--navy); background: var(--latte); border-radius: 999px; padding: 2px 10px; }
+.kei-badge { display: inline-block; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; }
 
 .ai-head { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
 .ai-head .kei-ava { width: 48px; height: 48px; }
 .ai-head h2 { margin: 0; font-size: 16px; }
 .ai-head .who { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
-.ai-card { border-color: var(--latte); }
+.ai-card { border-color: var(--line); }
 .ai-loading .kei-ava { width: 40px; height: 40px; }
 .dots { display: inline-flex; gap: 4px; margin-left: 2px; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: hop 1s ease-in-out infinite; }
@@ -207,16 +210,19 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 @keyframes hop { 0%, 60%, 100% { transform: none; opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
 
 .notice.kei-empty { display: flex; gap: 18px; align-items: center; padding: 14px 20px 0; }
-.kei-empty .body-kei { flex: none; width: 74px; height: 200px; object-fit: cover; object-position: 50% 0; -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
+.kei-empty .body-kei { flex: none; width: 74px; height: 200px; object-fit: cover; object-position: 50% 0; }
 .kei-empty .txt { padding-bottom: 14px; }
 
 @media (max-width: 520px) {
-  .hero { grid-template-columns: 1fr 112px; padding: 18px 0 0 16px; border-radius: 14px; }
-  .hero-text { padding-bottom: 16px; }
-  .hero-kei { width: 112px; height: 160px; }
-  .bubble { padding: 12px 14px; }
-  .bubble .hello { font-size: 17px; }
-  .bubble .sub { font-size: 14px; }
+  .hero { grid-template-columns: 1fr 104px; padding: 16px 0 0 14px; border-radius: 14px; }
+  .hero-text { padding-bottom: 14px; }
+  .hero-kei { width: 104px; height: 150px; }
+  .brand-ci { width: 156px; }
+  .hero h1 { gap: 10px; font-size: 20px; margin-bottom: 10px; }
+  .hero h1 .svc { padding-left: 10px; }
+  .bubble { padding: 12px 13px; }
+  .bubble .hello { font-size: 18px; }
+  .bubble .sub { font-size: 14.5px; }
   .a:not([hidden]) { grid-template-columns: 28px 1fr; gap: 10px; }
   .a-ava { width: 28px; height: 28px; }
   .kei-empty .body-kei { width: 56px; height: 150px; }
@@ -231,9 +237,9 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 <main class="wrap">
   <header class="hero">
     <div class="hero-text">
-      <h1>NHN KCP FAQ</h1>
+      <h1><img class="brand-ci ci-light" src="data:image/png;base64,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" alt="NHN KCP" width="268" height="48"><img class="brand-ci ci-dark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAAArCAMAAABxcvVMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAADwUExURQAAAP////////////////////////////////////////////////////////////////////////n5+f////////////////////z8/Pz8/P////////////////////39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f////7+/v7+/v7+/v7+/v7+/v////z8/P7+/v7+/vz8/Pz8/P7+/v39/f39/f39/f39/f7+/v39/f7+/v7+/v7+/v39/f7+/v39/f7+/v7+/v39/f7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v///5ccXy0AAABPdFJOUwABAgMFBwoQExQYGR4gIyYnKCstLjY4PEJLUVNUVVxrboWHio6TlpeYpKmqq7K4vb/AwcHDxcjQ0dLT1dfb3uDh5OTl5e7y8vP19vj5+/5PryOwAAAACXBIWXMAACHVAAAh1QEEnLSdAAADz0lEQVRoQ9WZ53LbQAyEldiJ03vvdnrvvffm5N7/bTIE74AFDuBRGc2I/v6IWOzBWNozkqnZbKtxLzF3bW/y8OobvpxSUg3Vcfq2mdlUpmXCK6nAuOvBqCE0DQS4lgivg4FxzYeBrvjTtqSUbsKopcHbQGC1ped1GOOZxC+Zd5HAwYq3lV7hHa6RccuCV+HAwYIvlO7gnHaQgUuCNymBX/vrHUHZR88LOCEjlwNvkgOfxO08X8STkT6YuWhWreDBi+TAwW4od6x04g4QtgXGivvFZmZziZgOlVfQALypnNhleJE+MJfa/wh1NchKnmtNxF6n1zv6iNgB06HSD/xAWxsjOygwV34sYi82ZrMb2is+NOGA6iY59oLpUOkGft8P+VTqxsiOLjAXKaXDYLoFOsgZpUVG0U/xtWppe8Z0qBwKrG+itmSykQLzdUrpmWsKhgCR8y00jMWzZ0yHysHA6iYaT08xpg2VV5tFPqd0h2CCahiLa+8xHSqHA+NMayLYuMFXlfdzoHuEVmgYD1xaTIfKRuCjVDdGVkQerXuEXmjIJZnkqsJ0qGwEhptoTYQYgdBjGg6hFxpymT4sPrDcRGsiwMjEHtupibyi58Dr7PLsGTjFNAN/nzfw/thjOzWRV/SVHLj/qMBvy9qekVPCQGAZVV5rcFQh9Jy3nZpgisgl4XrRFhn4Ym+ZN7B1sn7MNBy8Ia9ExMDZe6jIDnCMGQqsb6I1ETAJCDxntO6hxngUz7ox20EEGgqDgfOJC6WswVGC/rwsupJdcIoLBv6q9RrToXI4MC5gTQT0kcCjZBcc4sGeLvC47UzZCHx1zEgH34OqD85w+MIeCtwabTpUNgKPGunhekAMwBEO4ukDi1+PyZgOla3AY0YWw04odovnHVhawISa5+DJgX+VnppSMB0qm4F5B+PpKc2+D9V//opxgkV5cuAR25myHfhlc6S0pax+kBUF/95YjKcELiekDXgH24HbIzuGHuJd9kRGPR4Bp/Bzlz0AgbdT+VE5CtQy5YjAeQvlKPQtCfyNhZT21a56jPwTQIQ+gNocuCt/q75gBlE5JnDnxDbA+5UH8SzgmeuoqlFW9F3DzGEdyw8rMLyf+1VLbcvQc+lVJR03Rj47LXg/DnxAdh5I7GB8fHRa8H7+t4drRcS3aJ/H5jDPmxa8X/D9MIvXUPWwZ2XepOD9ILCf+DSqNdVRPjgteD8MvClr4+KoWmqPnJsUvB8GVtH2+LLirGORY5OC91OB/T/qMLJrAHFK8H468CVZ3Kz+Fzt1O5C3NvQNac9T2xvBP9t5TTjje+U5AAAAAElFTkSuQmCC" alt="" width="240" height="43" aria-hidden="true"><span class="svc">FAQ</span></h1>
       <div class="bubble">
-        <p class="hello"><span id="greet">안녕하세요!</span> 운영팀 Kei예요 😊</p>
+        <p class="hello">안녕하세요~ 운영팀 Kei예요 😊</p>
         <p class="sub">단말기·결제 궁금한 점을 편하게 물어보세요. 제품명이나 화면에 뜬 오류 문구를 같이 적어 주시면 더 정확하게 찾아 드릴게요 🙌</p>
       </div>
     </div>
@@ -245,13 +251,6 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
     <button type="submit" id="go">질문하기</button>
   </form>
   <p class="notice-small" id="aiNotice" hidden>질문 내용은 Kei 사원 답변(AI)과 FAQ 개선에 쓰이도록 익명으로 기록됩니다. 가맹점 정보나 연락처 같은 개인정보는 입력하지 마세요.</p>
-
-  <div class="examples" id="examples">
-    <span>💡 이렇게 물어보셔도 돼요</span>
-    <button type="button" class="ex-btn">C3100 영수증 다시 뽑는 법</button>
-    <button type="button" class="ex-btn">토스페이 결제 가능 단말기</button>
-    <button type="button" class="ex-btn">P6300K 개통번호 확인</button>
-  </div>
 
   <div class="pick" id="pick" hidden></div>
   <div class="ai-wrap" id="ai" aria-live="polite"></div>
@@ -613,15 +612,27 @@ function search(data, query, opts) {
 
   function showAnswer(d, ms) {
     aiState = "done";
-    const titles = (d.sources || []).map((id) => {
+    // 근거: 같은 문서(조각 (1/4), (2/4)…)는 한 행으로 합쳐 노션 원문으로 연결
+    const seen = new Set();
+    const srcRows = [];
+    (d.sources || []).forEach((id) => {
       const f = data.items.find((i) => i.raw.id === id) || (kdata && kdata.items.find((i) => i.raw.id === id));
-      return f ? f.question : "";
-    }).filter(Boolean);
+      if (!f) return;
+      const pid = String(id).split("#")[0];                                   // 조각 번호(#1, #2…)를 뺀 문서 ID
+      const title = String(f.question).replace(/\s*\(\d+\/\d+\)\s*$/, "");      // 제목 끝의 (1/4) 표시를 뺌
+      const key = pid + "|" + title;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const u = notionUrl(f);
+      srcRows.push('<li>' + (u
+        ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(title) + '<span class="go" aria-hidden="true"> ↗</span><span class="sr-only"> (노션 원문, 새 탭)</span></a>'
+        : '<span class="src-plain">' + esc(title) + '</span>') + '</li>');
+    });
     $("ai").innerHTML = '<div class="ai-card"><div class="ai-head"><img class="kei-ava" src="' + KEI.smile + '" alt="" width="48" height="48">' +
       '<h2>운영팀 Kei 사원 답변 💬<span class="who">찾아본 내용을 쉽게 정리해 드릴게요</span></h2></div>' +
       '<p class="ai-body">' + formatAi(d.answer) + '</p>' +
-      '<p class="ai-note">🤖 FAQ·매뉴얼을 바탕으로 AI가 정리한 답변이에요. 정확한 내용은 아래 원문에서 한 번 더 확인해 주세요.' +
-      (titles.length ? '<br>근거: ' + titles.map(esc).join(" / ") : "") + '</p>' +
+      '<p class="ai-note">🤖 FAQ·매뉴얼을 바탕으로 AI가 정리한 답변이에요. 정확한 내용은 아래 원문에서 한 번 더 확인해 주세요.</p>' +
+      (srcRows.length ? '<div class="ai-src"><h3>📎 근거 자료 (누르면 노션 원문으로 이동해요)</h3><ul>' + srcRows.join("") + '</ul></div>' : "") +
       (DEBUG && ms ? '<p class="ai-hint">[확인용] ' + ms + '</p>' : "") + '</div>';
   }
 
@@ -700,7 +711,7 @@ function search(data, query, opts) {
 
   function sourceLink(it) {
     const u = notionUrl(it);
-    return u ? '<p class="a-link"><a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">노션에서 원문 보기 ↗</a></p>' : "";
+    return u ? '<p class="a-link"><a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">노션에서 원문 보기<span class="go" aria-hidden="true"> ↗</span></a></p>' : "";
   }
 
   function linkify(text) {
@@ -1023,17 +1034,7 @@ function search(data, query, opts) {
     $("empty").innerHTML = '<div class="notice"><p><strong>앗, FAQ를 불러오지 못했어요 😢</strong></p><p>' + esc(msg) + "</p></div>";
   }
 
-  /* 시간대에 맞춰 인사말을 바꿉니다. */
-  function greet() {
-    const h = new Date().getHours();
-    $("greet").textContent = h >= 5 && h < 11 ? "좋은 아침이에요 ☀️"
-      : h < 17 && h >= 11 ? "좋은 오후예요 🌤️"
-      : h < 22 && h >= 17 ? "오늘도 수고 많으셨어요 🌙"
-      : "늦은 시간까지 고생 많으세요 🌙";
-  }
-
   async function init() {
-    greet();
     if (!AI_URL) $("go").textContent = "검색";
     if (AI_URL || LOG_URL) $("aiNotice").hidden = false;
     try {
@@ -1064,11 +1065,6 @@ function search(data, query, opts) {
       clearTimeout(idleTimer); idleTimer = setTimeout(checkNoResult, 2000);   // 입력을 멈추고 2초 뒤에도 결과가 없으면 기록
     });
     $("form").addEventListener("submit", (e) => { e.preventDefault(); ask(); });
-    // 예시 질문을 누르면 입력창에 넣고 바로 질문합니다. 입력이 있으면 예시는 숨깁니다.
-    document.querySelectorAll("#examples .ex-btn").forEach((b) => b.addEventListener("click", () => {
-      $("q").value = b.textContent; $("examples").hidden = true; ask();
-    }));
-    $("q").addEventListener("input", () => { $("examples").hidden = !!$("q").value.trim(); });
   }
   init();
 })();
