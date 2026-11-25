@@ -111,8 +111,13 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
 .a-body { max-width: 68ch; margin: 0; font-size: 15.5px; line-height: 1.8; color: var(--ink-2); white-space: pre-line; overflow-wrap: anywhere; }
 .a-body a { color: var(--blue-dim); text-decoration: underline; text-underline-offset: 2px; }
 .a-meta { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
-.a-link { margin: 10px 0 0; font-size: 14px; }
-.a-link a { color: var(--blue-dim); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.a-link { margin: 12px 0 0; font-size: 16.5px; }
+.a-link a { color: var(--blue-dim); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+/* 펼칠 때 글씨가 타이핑되는 효과: 끝나면 날짜·원문 링크가 부드럽게 나타남 */
+.a .a-meta, .a .a-link { transition: opacity .25s ease; }
+.a.is-typing .a-meta, .a.is-typing .a-link { opacity: 0; }
+.a-body.typing::after { content: ""; display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: var(--blue); animation: caret 0.8s steps(2, start) infinite; }
+@keyframes caret { to { visibility: hidden; } }
 .a-link a:hover { color: var(--ink); }
 .a-link a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
@@ -174,7 +179,7 @@ h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; font-weight: 700; lett
     <input type="search" id="q" aria-label="질문 입력" placeholder="예: C3100 영수증 다시 뽑는 법" enterkeyhint="search">
     <button type="submit" id="go">질문하기</button>
   </form>
-  <p class="notice-small" id="aiNotice" hidden>질문 내용은 AI 요약과 FAQ 개선에 쓰이도록 익명으로 기록됩니다. 가맹점 정보나 연락처 같은 개인정보는 입력하지 마세요.</p>
+  <p class="notice-small" id="aiNotice" hidden>질문 내용은 Kei 사원 답변(AI)과 FAQ 개선에 쓰이도록 익명으로 기록됩니다. 가맹점 정보나 연락처 같은 개인정보는 입력하지 마세요.</p>
 
   <div class="pick" id="pick" hidden></div>
   <div class="ai-wrap" id="ai" aria-live="polite"></div>
@@ -440,7 +445,8 @@ function search(data, query, opts) {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MAX_SHOWN = 30;
-  const INITIAL_SHOWN = 8;   // 처음에 보여 줄 FAQ 개수. 나머지는 '더 보기'로 펼침
+  const INITIAL_SHOWN = 1;   // 처음에 보여 줄 개수(가장 유력한 1건). 나머지는 '더 보기'로 펼침
+  const MORE_STEP = 3;       // '더 보기'를 누를 때마다 추가로 보여 줄 개수
   const MAX_DOCS = 5;
   const TOP_SHOWN = 10;
 
@@ -520,8 +526,8 @@ function search(data, query, opts) {
   function showFallback(kind, detail) {
     aiState = "fallback";
     const msg = kind === "busy"
-      ? "AI 요약 이용이 많아 지금은 검색 결과로 안내해 드립니다. 잠시 뒤 다시 질문해 주세요."
-      : "지금은 AI 요약을 이용할 수 없어 검색 결과로 안내해 드립니다.";
+      ? "Kei 사원 답변 이용이 많아 지금은 검색 결과로 안내해 드립니다. 잠시 뒤 다시 질문해 주세요."
+      : "지금은 Kei 사원 답변을 이용할 수 없어 검색 결과로 안내해 드립니다.";
     $("ai").innerHTML = '<p class="ai-msg">' + esc(msg + (DEBUG && detail ? " [확인용: " + detail + "]" : "")) + "</p>";
   }
 
@@ -531,7 +537,7 @@ function search(data, query, opts) {
       const f = data.items.find((i) => i.raw.id === id) || (kdata && kdata.items.find((i) => i.raw.id === id));
       return f ? f.question : "";
     }).filter(Boolean);
-    $("ai").innerHTML = '<div class="ai-card"><h2>AI 정리 답변</h2><p class="ai-body">' + formatAi(d.answer) + '</p>' +
+    $("ai").innerHTML = '<div class="ai-card"><h2>운영팀 Kei 사원 답변</h2><p class="ai-body">' + formatAi(d.answer) + '</p>' +
       '<p class="ai-note">FAQ·매뉴얼 내용을 바탕으로 AI가 정리한 답변입니다. 정확한 내용은 아래 원문으로 확인하세요.' +
       (titles.length ? '<br>근거: ' + titles.map(esc).join(" / ") : "") + '</p>' +
       (DEBUG && ms ? '<p class="ai-hint">[확인용] ' + ms + '</p>' : "") + '</div>';
@@ -539,7 +545,7 @@ function search(data, query, opts) {
 
   function showLoading() {
     aiState = "loading";
-    $("ai").innerHTML = '<div class="ai-card ai-loading" role="status"><span class="spinner" aria-hidden="true"></span><span>FAQ와 매뉴얼을 확인해 정리하는 중…</span></div>';
+    $("ai").innerHTML = '<div class="ai-card ai-loading" role="status"><span class="spinner" aria-hidden="true"></span><span>Kei 사원이 FAQ와 매뉴얼을 확인하는 중…</span></div>';
   }
 
   async function askAi(q) {
@@ -621,14 +627,85 @@ function search(data, query, opts) {
 
   function dateOf(iso) { return iso ? String(iso).slice(0, 10) : ""; }
 
+  const REDUCED_MOTION = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  /* 답변 글씨를 타이핑하듯 나타냅니다. 링크(<a>)가 섞여 있어도 글자 노드를 차례로 채웁니다.
+     긴 답변도 약 1초 안에 끝나도록 속도를 조절하고, 끝나기 전에 접으면 바로 전체를 보여 줍니다. */
+  function typeIn(panel) {
+    const body = panel.querySelector(".a-body");
+    if (!body || REDUCED_MOTION) return null;
+    const nodes = [];
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) { if (n.nodeValue) nodes.push({ node: n, text: n.nodeValue }); }
+    const total = nodes.reduce((sum, x) => sum + x.text.length, 0);
+    if (!total) return null;
+    body.style.minHeight = body.offsetHeight + "px";      // 전체 높이를 미리 잡아 두어 화면이 출렁이지 않게
+    nodes.forEach((x) => { x.node.nodeValue = ""; });
+    panel.classList.add("is-typing"); body.classList.add("typing");
+    const perChar = Math.min(14, 900 / total);              // 글자당 ms
+    const t0 = performance.now();
+    let raf = 0, done = false;
+    const finish = () => {
+      if (done) return;
+      done = true; cancelAnimationFrame(raf);
+      nodes.forEach((x) => { x.node.nodeValue = x.text; });
+      body.style.minHeight = ""; body.classList.remove("typing"); panel.classList.remove("is-typing");
+      panel._stopTyping = null;
+    };
+    const step = (now) => {
+      if (done) return;
+      let left = Math.min(total, Math.floor((now - t0) / perChar) + 1);
+      if (left >= total) { finish(); return; }
+      for (const x of nodes) {
+        const k = Math.min(left, x.text.length);
+        x.node.nodeValue = x.text.slice(0, k);
+        left -= k;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return finish;
+  }
+
   function toggle(li) {
     const btn = li.querySelector(".q"), panel = li.querySelector(".a");
     btn.addEventListener("click", () => {
       const expanded = btn.getAttribute("aria-expanded") === "true";
       btn.setAttribute("aria-expanded", String(!expanded));
+      if (panel._stopTyping) panel._stopTyping();
       panel.hidden = expanded;
+      if (!expanded) panel._stopTyping = typeIn(panel);
     });
     return li;
+  }
+
+  /* 결과를 처음 INITIAL_SHOWN건만 보여 주고, '더 보기'를 누를 때마다 MORE_STEP건씩 추가로 엽니다. */
+  function appendPaged(ul, rows, build) {
+    let shown = 0;
+    rows.slice(0, INITIAL_SHOWN).forEach((r, i) => { ul.appendChild(build(r, i)); shown++; });
+    if (rows.length <= shown) return;
+    const more = document.createElement("li");
+    more.className = "more";
+    const mb = document.createElement("button");
+    mb.type = "button";
+    const label = () => "더 보기 (" + (rows.length - shown) + "건 남음)";
+    mb.textContent = label();
+    mb.addEventListener("click", () => {
+      const start = shown;
+      let firstNew = null;
+      rows.slice(start, start + MORE_STEP).forEach((r, i) => {
+        const li = build(r, start + i);
+        if (!firstNew) firstNew = li;
+        ul.insertBefore(li, more);
+      });
+      shown = Math.min(rows.length, start + MORE_STEP);
+      if (shown >= rows.length) more.remove(); else mb.textContent = label();
+      const fq = firstNew && firstNew.querySelector(".q");
+      if (fq) fq.focus();
+    });
+    more.appendChild(mb);
+    ul.appendChild(more);
   }
 
   function buildItem(it, terms, open) {
@@ -797,20 +874,7 @@ function search(data, query, opts) {
 
     if (rows.length) {
       list.hidden = false;
-      rows.slice(0, INITIAL_SHOWN).forEach((r, i) => list.appendChild(buildItem(r.it, hl, !!q && i === 0 && aiState === "idle")));
-      if (rows.length > INITIAL_SHOWN) {
-        const more = document.createElement("li");
-        more.className = "more";
-        const mb = document.createElement("button");
-        mb.type = "button";
-        mb.textContent = "나머지 " + (rows.length - INITIAL_SHOWN) + "건 더 보기";
-        mb.addEventListener("click", () => {
-          rows.slice(INITIAL_SHOWN).forEach((r) => list.insertBefore(buildItem(r.it, hl, false), more));
-          more.remove();
-        });
-        more.appendChild(mb);
-        list.appendChild(more);
-      }
+      appendPaged(list, rows, (r, i) => buildItem(r.it, hl, !!q && i === 0 && aiState === "idle"));
       if (q && LOG_URL) {
         fb.append("찾는 답이 아닌가요?");
         const b = document.createElement("button");
@@ -831,7 +895,7 @@ function search(data, query, opts) {
       docsBox.hidden = false;
       docsBox.innerHTML = '<h2>매뉴얼·안내에서 찾은 내용</h2><p class="docs-sub">운영팀 홈의 매뉴얼과 표에서 찾았습니다.</p>';
       const dl = document.createElement("ul"); dl.className = "list";
-      docRows.forEach((r, i) => dl.appendChild(buildDoc(r.it, hl, !rows.length && i === 0 && aiState === "idle")));
+      appendPaged(dl, docRows, (r, i) => buildDoc(r.it, hl, !rows.length && i === 0 && aiState === "idle"));
       docsBox.appendChild(dl);
     }
 
